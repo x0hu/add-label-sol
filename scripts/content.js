@@ -1,95 +1,135 @@
-// Function to convert an address to its 5-digit representation
-function convertAddressTo5Digits(address) {
-    // Assuming the address is a hexadecimal string starting with '0x'
-    // and you want to take the last 5 characters after '0x'
-    return address.slice(2).slice(-6).toLowerCase();
-}
-
-// Function to replace specific addresses with names in the page
-const replaceAddressWithName = (element, processedAddressList) => {
- for (const [address, name] of Object.entries(processedAddressList)) {
-    // Convert both the address and the href attribute to lowercase for case-insensitive comparison
-    const lowerCaseAddress = address.toLowerCase();
-    const lowerCaseHref = element.href.toLowerCase();
-
-    // Check if the href attribute ends with the address
-    if (lowerCaseHref.endsWith(lowerCaseAddress)) {
-      console.log(`Matching: ${address} with ${name}`); // Debugging log
-      element.textContent = name;
-      console.log(`Replaced ${address} with ${name}`);
-      break; // Stop checking once a match is found
-    }
- }
-};
-
-// Function to process the addressList and return a promise
-function processAddressList() {
-  return new Promise((resolve, reject) => {
-      chrome.storage.local.get(["addressList"], ({ addressList }) => {
-          if (!addressList) {
-              console.log("No addressList found in storage.");
-              reject("No addressList found in storage.");
-              return;
-          }
-
-          const processedAddressList = {};
-
-          for (const [fullAddress, details] of Object.entries(addressList)) {
-              const shortAddress = convertAddressTo5Digits(fullAddress);
-              processedAddressList[shortAddress] = details.name;
-          }
-
-          console.log(processedAddressList);
-          resolve(processedAddressList);
-      });
-  });
-}
-
-
-// Callback function to execute when mutations are observed
-const mutationCallback = (mutationsList, observer) => {
-    for (const mutation of mutationsList) {
-        if (mutation.type === 'childList') {
-            mutation.addedNodes.forEach(node => {
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    // Include both class selectors
-                    node.querySelectorAll('a.chakra-link.custom-1fg3dzk, a.chakra-link').forEach(node => replaceAddressWithName(node, processedAddressList));
+// Function to convert an address to its 6-digit representation
+function convertAddressTo6Digits(address) {
+    return address.slice(-6).toLowerCase();
+  }
+  
+  // Function to replace addresses with names
+  function replaceAddressWithName(element, processedAddressList) {
+    // For the first table structure (chakra-link)
+    if (element.classList.contains('chakra-link')) {
+        const fullAddress = element.href.split('/').pop().toLowerCase();
+        if (processedAddressList.hasOwnProperty(fullAddress)) {
+            const name = processedAddressList[fullAddress];
+            if (element.textContent !== name) {
+                element.textContent = name;
+                element.dataset.originalAddress = fullAddress;
+                
+                // Update associated span if it exists
+                const span = element.querySelector('span.chakra-text.custom-17xn0nd');
+                if (span) {
+                    span.textContent = name;
                 }
-            });
+            }
         }
     }
-};
-
-// Options for the mutation observer
-const mutationOptions = {
-    childList: true,
-    subtree: true
-};
-
-// Function to observe and replace addresses as the page loads more content
-function observeAndReplace(processedAddressList) {
-  const observer = new MutationObserver(mutationCallback);
-  observer.observe(document.body, { childList: true, subtree: true });
-
-  function mutationCallback(mutationsList, observer) {
-      for (const mutation of mutationsList) {
-          if (mutation.type === 'childList') {
-              mutation.addedNodes.forEach(node => {
-                  if (node.nodeType === Node.ELEMENT_NODE) {
-                      node.querySelectorAll('a.chakra-link.custom-1fg3dzk, a.chakra-link').forEach(node => replaceAddressWithName(node, processedAddressList));
-                  }
-              });
-          }
-      }
+    
+    // For the custom-17xn0nd elements (usually containing the truncated address)
+    if (element.classList.contains('chakra-text') && element.classList.contains('custom-17xn0nd')) {
+        const truncatedAddress = element.textContent;
+        const parentLink = element.closest('a');
+        if (parentLink) {
+            const fullAddress = parentLink.href.split('/').pop().toLowerCase();
+            if (processedAddressList.hasOwnProperty(fullAddress)) {
+                const name = processedAddressList[fullAddress];
+                if (element.textContent !== name) {
+                    element.dataset.originalAddress = truncatedAddress;
+                    element.textContent = name;
+                    
+                    // Update the parent link text as well
+                    parentLink.textContent = name;
+                    parentLink.dataset.originalAddress = fullAddress;
+                }
+            }
+        }
+    }
+  
+    // New condition for truncated addresses in the first column
+    if (element.classList.contains('chakra-text') && element.title && element.title.startsWith('0x')) {
+        const fullAddress = element.title.toLowerCase();
+        if (processedAddressList.hasOwnProperty(fullAddress)) {
+            const name = processedAddressList[fullAddress];
+            if (element.textContent !== name) {
+                element.dataset.originalAddress = element.textContent;
+                element.textContent = name;
+            }
+        }
+    }
   }
-}
-
-// Process the addressList before starting the mutation observer
-processAddressList().then(processedAddressList => {
-  // Now you can use processedAddressList in replaceAddressWithName
-  // For example, call replaceAddressWithName for each link after the list is processed
-  document.querySelectorAll('a.chakra-link.custom-1fg3dzk, a.chakra-link').forEach(node => replaceAddressWithName(node, processedAddressList));
-  observeAndReplace(processedAddressList); // Pass processedAddressList to observeAndReplace
-}).catch(error => {
-  console.error("Failed to process address list:", error);
-});
+  
+  // Function to process the addressList
+  function processAddressList() {
+    return new Promise((resolve, reject) => {
+        chrome.storage.local.get(["addressList"], ({ addressList }) => {
+            if (!addressList) {
+                console.log("No addressList found in storage.");
+                reject("No addressList found in storage.");
+                return;
+            }
+  
+            const processedAddressList = {};
+            for (const [fullAddress, details] of Object.entries(addressList)) {
+                processedAddressList[fullAddress.toLowerCase()] = details.name;
+            }
+            resolve(processedAddressList);
+        });
+    });
+  }
+  
+  // Function to replace all matching addresses on the page
+  function replaceAllAddresses(processedAddressList) {
+    document.querySelectorAll('a.chakra-link, .chakra-text.custom-17xn0nd, .chakra-text[title^="0x"]').forEach(element => {
+        replaceAddressWithName(element, processedAddressList);
+    });
+  }
+  
+  // Set up the mutation observer
+  function setupObserver(processedAddressList) {
+    const observer = new MutationObserver((mutations) => {
+        let shouldReplace = false;
+        mutations.forEach((mutation) => {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach((node) => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.classList.contains('chakra-link') || 
+                            (node.classList.contains('chakra-text') && node.classList.contains('custom-17xn0nd'))) {
+                            shouldReplace = true;
+                        } else {
+                            const hasRelevantChildren = node.querySelector('a.chakra-link, .chakra-text.custom-17xn0nd');
+                            if (hasRelevantChildren) shouldReplace = true;
+                        }
+                    }
+                });
+            }
+        });
+        if (shouldReplace) {
+            replaceAllAddresses(processedAddressList);
+        }
+    });
+  
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+  }
+  
+  // Main execution
+  function init() {
+    processAddressList().then(processedAddressList => {
+        replaceAllAddresses(processedAddressList);
+        setupObserver(processedAddressList);
+        
+        // Add event listener for page changes (for single-page applications)
+        window.addEventListener('popstate', () => {
+            setTimeout(() => replaceAllAddresses(processedAddressList), 500);
+        });
+    }).catch(error => {
+        console.error("Failed to process address list:", error);
+    });
+  }
+  
+  // Run the script
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
