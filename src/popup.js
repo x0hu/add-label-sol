@@ -17,7 +17,7 @@ const generateTable = (addressList) => {
   // thead
   const tr = document.createElement("tr")
 
-  for (const header of ["address", "name", "chainId"]) {
+  for (const header of ["address", "name"]) {
     const th = document.createElement("th")
     th.textContent = header
     tr.appendChild(th)
@@ -25,10 +25,10 @@ const generateTable = (addressList) => {
   thead.appendChild(tr)
 
   // tbody
-  for (const [address, { name, chainId }] of Object.entries(addressList)) {
+  for (const [address, { name }] of Object.entries(addressList)) {
     const tr = document.createElement("tr")
 
-    for (const text of [address, name, chainId]) {
+    for (const text of [address, name]) {
       const td = document.createElement("td")
       td.textContent = text
       tr.appendChild(td)
@@ -42,6 +42,17 @@ const generateTable = (addressList) => {
   table.className = "table is-bordered is-fullwidth is-size-7"
 
   return table
+}
+
+// Add this new function
+const filterAddressList = (addressList, filter) => {
+  const filteredList = {};
+  for (const [address, data] of Object.entries(addressList)) {
+    if (address.includes(filter) || data.name.toLowerCase().includes(filter.toLowerCase())) {
+      filteredList[address] = data;
+    }
+  }
+  return filteredList;
 }
 
 const toastMsg = (msg, isError) => {
@@ -63,14 +74,12 @@ const csvToJSON = (csv) => {
   const rows = csv.split(/\r\n|\n|\r/)
 
   rows.slice(1).forEach((row) => {
-    const [address, name, chainId] = row.split(",")
+    const [address, name] = row.split(",")
     const _address = address?.replaceAll('"', "").toLowerCase()
     const _name = name?.replaceAll('"', "")
-    const _chainId = chainId?.replaceAll('"', "")
     if (_address?.match(addressRegex) && _name?.match(nameRegex)) {
       jsonObj[_address] = {
         name: _name,
-        chainId: Number(_chainId),
       }
     }
   })
@@ -79,13 +88,22 @@ const csvToJSON = (csv) => {
 }
 
 const jsonToCsv = (jsonObj) => {
-  let csvString = "address,name,chainId\n"
+  let csvString = "address,name\n"
 
-  for (const [address, { name, chainId }] of Object.entries(jsonObj)) {
-    csvString += `${address},${name},${chainId}\n`
+  for (const [address, { name }] of Object.entries(jsonObj)) {
+    csvString += `${address},${name}\n`
   }
   return csvString
 }
+
+// Add this debounce function at the top of the file
+const debounce = (func, delay) => {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), delay);
+  };
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   const inputFile = document.getElementById("input-file")
@@ -99,10 +117,43 @@ document.addEventListener("DOMContentLoaded", () => {
   const boxAddressList = document.getElementById("address-list")
   const searchInput = document.getElementById("search-input");
   
-  searchInput.addEventListener("input", () => {
-    const table = document.getElementById("address-list").getElementsByTagName("table")[0];
-    searchTable(searchInput, table);
-  });
+  // Function to save input values
+  function saveInputs() {
+    chrome.storage.local.set({
+      'partialAddress': inputAddress.value,
+      'partialName': inputName.value
+    });
+  }
+
+  // Function to load saved input values
+  function loadSavedInputs() {
+    chrome.storage.local.get(['partialAddress', 'partialName'], (result) => {
+      if (result.partialAddress) inputAddress.value = result.partialAddress;
+      if (result.partialName) inputName.value = result.partialName;
+    });
+  }
+
+  // Load saved inputs when popup opens
+  loadSavedInputs();
+
+  // Save inputs as user types
+  inputAddress.addEventListener('input', saveInputs);
+  inputName.addEventListener('input', saveInputs);
+
+  // Replace the existing search input event listener with this
+  searchInput.addEventListener("input", debounce(() => {
+    const filter = searchInput.value.trim();
+    if (filter.length > 0) {
+      chrome.storage.local.get(["addressList"], ({ addressList }) => {
+        const filteredList = filterAddressList(addressList, filter);
+        boxAddressList.innerHTML = "";
+        boxAddressList.appendChild(generateTable(filteredList));
+      });
+    } else {
+      boxAddressList.innerHTML = "";
+    }
+  }, 300));
+
   // onChange event - Input file
   inputFile.addEventListener("change", () => {
     const isInputFile = !!inputFile?.files?.length
@@ -152,7 +203,6 @@ document.addEventListener("DOMContentLoaded", () => {
   btnSubmit.addEventListener("click", () => {
     const address = inputAddress.value.toString()
     const name = inputName.value.toString()
-    const chainId = 1
 
     if (!address.match(addressRegex) || !name.match(nameRegex)) {
       toastMsg("Invalid Address Or Name", true)
@@ -161,12 +211,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     chrome.storage.local.get(["addressList"], ({ addressList }) => {
       if (!addressList) addressList = {}
-      addressList[address.toLowerCase()] = { name, chainId }
+      addressList[address.toLowerCase()] = { name }
 
       chrome.storage.local.set({ addressList: addressList }, () => {
         boxAddressList.innerHTML = ""
         boxAddressList.appendChild(generateTable(addressList))
         toastMsg("New Address Added!")
+        
+        // Clear inputs and saved partial inputs after successful submission
+        inputAddress.value = ''
+        inputName.value = ''
+        chrome.storage.local.remove(['partialAddress', 'partialName'])
       })
     })
   })
@@ -176,10 +231,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const result = confirm("Are you sure?")
     if (!result) return
 
-    chrome?.storage?.local?.clear()
-    boxAddressList.innerHTML = ""
-
-    toastMsg("Address List Cleaned!")
+    chrome.storage.local.remove(["addressList", "partialAddress", "partialName"], () => {
+      boxAddressList.innerHTML = ""
+      inputAddress.value = ''
+      inputName.value = ''
+      toastMsg("Address List Cleaned!")
+    })
   })
 
   // searchtable
@@ -200,7 +257,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-
   // Checkbox auto scan
   checkboxAutoScan.addEventListener("change", () => {
     chrome.storage.local.set({ isAutoScan: checkboxAutoScan.checked }, () => {})
@@ -209,16 +265,16 @@ document.addEventListener("DOMContentLoaded", () => {
     )
   })
 
-  // Default display
+  // Modify the Default display section
   chrome.storage.local.get(
-    ["addressList", "isAutoScan"],
-    ({ addressList, isAutoScan }) => {
+    ["isAutoScan"],
+    ({ isAutoScan }) => {
       try {
-        if (addressList) boxAddressList.appendChild(generateTable(addressList))
-        if (isAutoScan) checkboxAutoScan.checked = true
+        if (isAutoScan) checkboxAutoScan.checked = true;
+        // Remove the initial table generation
       } catch (e) {
-        console.error("[Address Tagger] Display address", e)
-        toastMsg("Display address error", true)
+        console.error("[Address Tagger] Display address", e);
+        toastMsg("Display address error", true);
       }
     }
   )
