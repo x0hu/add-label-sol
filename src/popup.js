@@ -90,7 +90,32 @@ const csvToJSON = (csv) => {
 const jsonToCsv = (jsonObj) => {
   let csvString = "address,name\n"
 
-  for (const [address, { name }] of Object.entries(jsonObj)) {
+  // Convert the object to an array of [address, name] pairs
+  const entries = Object.entries(jsonObj).map(([address, { name }]) => [address, name]);
+
+  // Custom sorting function
+  const customSort = (a, b) => {
+    const nameA = a[1].toLowerCase();
+    const nameB = b[1].toLowerCase();
+
+    // If both names start with '@', sort them alphabetically
+    if (nameA.startsWith('@') && nameB.startsWith('@')) {
+      return nameA.localeCompare(nameB);
+    }
+
+    // If only one name starts with '@', put it first
+    if (nameA.startsWith('@')) return -1;
+    if (nameB.startsWith('@')) return 1;
+
+    // For other cases, use standard alphabetical sorting
+    return nameA.localeCompare(nameB);
+  };
+
+  // Sort the entries
+  entries.sort(customSort);
+
+  // Create the CSV string from the sorted entries
+  for (const [address, name] of entries) {
     csvString += `${address},${name}\n`
   }
   return csvString
