@@ -1,6 +1,8 @@
 # address-tagger-DEX
  "Alpha VERSION" Local Label Support with Dexscreener. Works for all *EVM* related chains supported
 
+RETARDIO
+
 slight bug might have to scroll up/down to refresh or fullrefresh the page it labels do not appear when new swaps go through 
 
 ![Screenshot 2024-06-06 at 12 00 48 AM](https://github.com/x0hu/address-labeler-DEX/assets/41461411/20bde840-e839-4aa1-8696-ba982f5509a2)
