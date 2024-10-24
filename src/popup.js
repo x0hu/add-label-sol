@@ -13,40 +13,21 @@ const generateTable = (addressList) => {
   const tbody = document.createElement("tbody");
 
   // thead
-<<<<<<< HEAD
   const tr = document.createElement("tr");
   for (const header of ["address", "name"]) {
     const th = document.createElement("th");
     th.textContent = header;
     tr.appendChild(th);
-=======
-  const tr = document.createElement("tr")
-
-  for (const header of ["address", "name"]) {
-    const th = document.createElement("th")
-    th.textContent = header
-    tr.appendChild(th)
->>>>>>> cccc3c5a463a361878edda7c4bf4dab913dc8b52
   }
   thead.appendChild(tr);
 
   // tbody
-<<<<<<< HEAD
   for (const [address, name] of Object.entries(addressList)) {
     const tr = document.createElement("tr");
     for (const text of [address, name]) {
       const td = document.createElement("td");
       td.textContent = text;
       tr.appendChild(td);
-=======
-  for (const [address, { name }] of Object.entries(addressList)) {
-    const tr = document.createElement("tr")
-
-    for (const text of [address, name]) {
-      const td = document.createElement("td")
-      td.textContent = text
-      tr.appendChild(td)
->>>>>>> cccc3c5a463a361878edda7c4bf4dab913dc8b52
     }
     tbody.appendChild(tr);
   }
@@ -56,17 +37,6 @@ const generateTable = (addressList) => {
   table.className = "table is-bordered is-fullwidth is-size-7";
   return table;
 };
-
-// Add this new function
-const filterAddressList = (addressList, filter) => {
-  const filteredList = {};
-  for (const [address, data] of Object.entries(addressList)) {
-    if (address.includes(filter) || data.name.toLowerCase().includes(filter.toLowerCase())) {
-      filteredList[address] = data;
-    }
-  }
-  return filteredList;
-}
 
 const toastMsg = (msg, isError) => {
   Toastify({
@@ -89,7 +59,6 @@ const csvToJSON = (csv) => {
   let jsonObj = {};
   const rows = csv.split(/\r\n|\n|\r/).filter(row => row.trim() !== '');
 
-<<<<<<< HEAD
   // Skip the header row
   for (let i = 1; i < rows.length; i++) {
     const [address, name] = rows[i].split(',').map(item => item.trim());
@@ -104,15 +73,6 @@ const csvToJSON = (csv) => {
       }
       if (!nameRegex.test(name)) {
         console.error(`Invalid name: ${name}`);
-=======
-  rows.slice(1).forEach((row) => {
-    const [address, name] = row.split(",")
-    const _address = address?.replaceAll('"', "").toLowerCase()
-    const _name = name?.replaceAll('"', "")
-    if (_address?.match(addressRegex) && _name?.match(nameRegex)) {
-      jsonObj[_address] = {
-        name: _name,
->>>>>>> cccc3c5a463a361878edda7c4bf4dab913dc8b52
       }
     }
   }
@@ -122,15 +82,10 @@ const csvToJSON = (csv) => {
 };
 
 const jsonToCsv = (jsonObj) => {
-<<<<<<< HEAD
   let csvString = "address,name\n";
-  for (const [address, name] of Object.entries(jsonObj)) {
-    csvString += `${address},${name}\n`;
-=======
-  let csvString = "address,name\n"
 
   // Convert the object to an array of [address, name] pairs
-  const entries = Object.entries(jsonObj).map(([address, { name }]) => [address, name]);
+  const entries = Object.entries(jsonObj);
 
   // Custom sorting function
   const customSort = (a, b) => {
@@ -155,19 +110,9 @@ const jsonToCsv = (jsonObj) => {
 
   // Create the CSV string from the sorted entries
   for (const [address, name] of entries) {
-    csvString += `${address},${name}\n`
->>>>>>> cccc3c5a463a361878edda7c4bf4dab913dc8b52
+    csvString += `${address},${name}\n`;
   }
   return csvString;
-};
-
-// Add this debounce function at the top of the file
-const debounce = (func, delay) => {
-  let timeoutId;
-  return (...args) => {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func(...args), delay);
-  };
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -205,26 +150,10 @@ document.addEventListener("DOMContentLoaded", () => {
   inputAddress.addEventListener('input', saveInputs);
   inputName.addEventListener('input', saveInputs);
 
-<<<<<<< HEAD
   searchInput.addEventListener("input", () => {
     const table = document.getElementById("address-list").getElementsByTagName("table")[0];
     searchTable(searchInput, table);
   });
-=======
-  // Replace the existing search input event listener with this
-  searchInput.addEventListener("input", debounce(() => {
-    const filter = searchInput.value.trim();
-    if (filter.length > 0) {
-      chrome.storage.local.get(["addressList"], ({ addressList }) => {
-        const filteredList = filterAddressList(addressList, filter);
-        boxAddressList.innerHTML = "";
-        boxAddressList.appendChild(generateTable(filteredList));
-      });
-    } else {
-      boxAddressList.innerHTML = "";
-    }
-  }, 300));
->>>>>>> cccc3c5a463a361878edda7c4bf4dab913dc8b52
 
   // onChange event - Input file
   inputFile.addEventListener("change", () => {
@@ -277,20 +206,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Submit
   btnSubmit.addEventListener("click", () => {
-<<<<<<< HEAD
     const address = inputAddress.value.trim();
     const name = inputName.value.trim();
-=======
-    const address = inputAddress.value.toString()
-    const name = inputName.value.toString()
->>>>>>> cccc3c5a463a361878edda7c4bf4dab913dc8b52
 
     if (!addressRegex.test(address) || !nameRegex.test(name)) {
       toastMsg("Invalid Address Or Name", true);
       return;
     }
 
-<<<<<<< HEAD
     chrome.storage.local.get(["addressList"], ({ addressList = {} }) => {
       addressList[address] = name;
       chrome.storage.local.set({ addressList: addressList }, () => {
@@ -321,41 +244,6 @@ document.addEventListener("DOMContentLoaded", () => {
   // Search table
   const searchTable = (input, table) => {
     const filter = input.value.toUpperCase();
-=======
-    chrome.storage.local.get(["addressList"], ({ addressList }) => {
-      if (!addressList) addressList = {}
-      addressList[address.toLowerCase()] = { name }
-
-      chrome.storage.local.set({ addressList: addressList }, () => {
-        boxAddressList.innerHTML = ""
-        boxAddressList.appendChild(generateTable(addressList))
-        toastMsg("New Address Added!")
-        
-        // Clear inputs and saved partial inputs after successful submission
-        inputAddress.value = ''
-        inputName.value = ''
-        chrome.storage.local.remove(['partialAddress', 'partialName'])
-      })
-    })
-  })
-
-  // Clean
-  btnClean.addEventListener("click", () => {
-    const result = confirm("Are you sure?")
-    if (!result) return
-
-    chrome.storage.local.remove(["addressList", "partialAddress", "partialName"], () => {
-      boxAddressList.innerHTML = ""
-      inputAddress.value = ''
-      inputName.value = ''
-      toastMsg("Address List Cleaned!")
-    })
-  })
-
-  // searchtable
-  const searchTable = (searchInput, table) => {
-    const filter = searchInput.value.toUpperCase();
->>>>>>> cccc3c5a463a361878edda7c4bf4dab913dc8b52
     const rows = table.getElementsByTagName("tr");
   
     for (let i = 1; i < rows.length; i++) {
@@ -377,24 +265,12 @@ document.addEventListener("DOMContentLoaded", () => {
     toastMsg(checkboxAutoScan.checked ? "Enable Auto Scan" : "Disable Auto Scan");
   });
 
-  // Modify the Default display section
+  // Default display
   chrome.storage.local.get(
-<<<<<<< HEAD
     ["addressList", "isAutoScan"],
     ({ addressList, isAutoScan }) => {
       if (addressList) boxAddressList.appendChild(generateTable(addressList));
       if (isAutoScan) checkboxAutoScan.checked = true;
-=======
-    ["isAutoScan"],
-    ({ isAutoScan }) => {
-      try {
-        if (isAutoScan) checkboxAutoScan.checked = true;
-        // Remove the initial table generation
-      } catch (e) {
-        console.error("[Address Tagger] Display address", e);
-        toastMsg("Display address error", true);
-      }
->>>>>>> cccc3c5a463a361878edda7c4bf4dab913dc8b52
     }
   );
 });
