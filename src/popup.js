@@ -3,7 +3,6 @@ const csvWhitelistRegex = /[^a-zA-Z0-9",.\-\s\u4E00-\u9FFF$+?@_*()\/":%'*]{1,100
 
 // Solana address regex pattern
 const addressRegex = /^[A-HJ-NP-Za-km-z1-9]{32,44}$/;
-
 // Extend the nameRegex to include $, +, ?, @, _, *, (, ), /, ", :, %, ', *, and spaces and increase the length limit if needed
 const nameRegex = /^[a-zA-Z0-9,.\-\s\u4E00-\u9FFF$+?@_*()\/":%'*]{1,100}$/;
 
@@ -115,6 +114,26 @@ const jsonToCsv = (jsonObj) => {
   return csvString;
 };
 
+// Add debounce function at the top with other utility functions
+const debounce = (func, delay) => {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func(...args), delay);
+  };
+};
+
+// Add filterAddressList function
+const filterAddressList = (addressList, filter) => {
+  const filteredList = {};
+  for (const [address, name] of Object.entries(addressList)) {
+    if (address.includes(filter) || name.toLowerCase().includes(filter.toLowerCase())) {
+      filteredList[address] = name;
+    }
+  }
+  return filteredList;
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   const inputFile = document.getElementById("input-file");
   const inputAddress = document.getElementById("input-address");
@@ -150,10 +169,22 @@ document.addEventListener("DOMContentLoaded", () => {
   inputAddress.addEventListener('input', saveInputs);
   inputName.addEventListener('input', saveInputs);
 
-  searchInput.addEventListener("input", () => {
-    const table = document.getElementById("address-list").getElementsByTagName("table")[0];
-    searchTable(searchInput, table);
-  });
+  // Replace the search input event listener in the DOMContentLoaded section
+  searchInput.addEventListener("input", debounce(() => {
+    const filter = searchInput.value.trim();
+    if (filter.length > 0) {
+      chrome.storage.local.get(["addressList"], ({ addressList }) => {
+        const filteredList = filterAddressList(addressList, filter);
+        boxAddressList.innerHTML = "";
+        boxAddressList.appendChild(generateTable(filteredList));
+      });
+    } else {
+      chrome.storage.local.get(["addressList"], ({ addressList }) => {
+        boxAddressList.innerHTML = "";
+        if (addressList) boxAddressList.appendChild(generateTable(addressList));
+      });
+    }
+  }, 300));
 
   // onChange event - Input file
   inputFile.addEventListener("change", () => {
@@ -241,24 +272,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
   
-  // Search table
-  const searchTable = (input, table) => {
-    const filter = input.value.toUpperCase();
-    const rows = table.getElementsByTagName("tr");
-  
-    for (let i = 1; i < rows.length; i++) {
-      const cells = rows[i].getElementsByTagName("td");
-      let match = false;
-      for (let j = 0; j < cells.length; j++) {
-        if (cells[j].textContent.toUpperCase().indexOf(filter) > -1) {
-          match = true;
-          break;
-        }
-      }
-      rows[i].style.display = match ? "" : "none";
-    }
-  };
-
   // Checkbox auto scan
   checkboxAutoScan.addEventListener("change", () => {
     chrome.storage.local.set({ isAutoScan: checkboxAutoScan.checked });
